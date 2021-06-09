@@ -1,45 +1,62 @@
 <template>
   <div class="container">
-    <div id="overlay" ref="overlay" @click="handleClick">
+    <div
+      id="overlay"
+      ref="overlay"
+      @click="handleClick"
+      @mouseenter="isHovering = true"
+      @mouseleave="isHovering = false"
+      @mousemove.stop="handleMouseMove"
+    >
       <img
         src="map.jpg"
         class="img-responsive"
         alt="a facility map"
         width="720px"
       />
-      <incident-marker :top="top" :left="left" />
-      <incident-marker top='50' left='50' />
+      <incident-marker v-if="isHovering" :markerData="hoverMarker" />
+      <incident-marker
+        v-for="marker in markers"
+        :key="marker.id"
+        :markerData="marker"
+      />
     </div>
     <button type="button" @click="capture" class="btn btn-primary">
       capture
     </button>
-    <img v-if="source" :src="source" alt="" />
+    <p>{{ isHovering }}</p>
+    <marker-description v-for="marker of markers" :key="marker.id" />
   </div>
 </template>
 
 <script>
 import Marker from "./Marker";
+import MarkerDescription from "./MarkerDescription";
 import domtoimage from "dom-to-image";
 import axios from "axios";
+import { mapMutations, mapState, mapGetters } from "vuex";
 
 export default {
   data() {
     return {
-      top: 0,
-      left: 0,
-      source: null,
+      isHovering: false,
     };
   },
+  computed: {
+    ...mapState(["markers", "hoverMarker"]),
+    ...mapGetters(["coordinates"]),
+  },
   methods: {
-    handleClick(event) {
-      const {
-        height,
-        width,
-        x,
-        y,
-      } = this.$refs.overlay.getBoundingClientRect();
-      this.top = (100 * (event.clientY - y)) / height;
-      this.left = (100 * (event.clientX - x)) / width;
+    ...mapMutations(["addMarker", "moveMarker"]),
+    handleClick() {
+      this.addMarker();
+    },
+    handleMouseMove(event) {
+      const { height, width, x, y } =
+        this.$refs.overlay.getBoundingClientRect();
+      let top = (100 * (event.clientY - y)) / height;
+      let left = (100 * (event.clientX - x)) / width;
+      this.moveMarker({ top, left });
     },
     async capture() {
       const dataUrl = await domtoimage.toJpeg(this.$refs.overlay);
@@ -47,19 +64,20 @@ export default {
         url: "/pdf",
         method: "POST",
         responseType: "blob",
-        data: {img: dataUrl},
+        data: { img: dataUrl },
       });
       // console.log(res)
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
+      // const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', 'test.pdf');
+      link.setAttribute("download", "test.pdf");
       document.body.appendChild(link);
       link.click();
     },
   },
   components: {
     "incident-marker": Marker,
+    "marker-description": MarkerDescription,
   },
 };
 </script>
